@@ -7,7 +7,7 @@ import zmq
 
 context = zmq.Context()
 socket = context.socket(zmq.REP)
-socket.bind("tcp://*:5558")
+socket.bind("tcp://*:5556")
 
 # SIGINT will normally raise a KeyboardInterrupt, just like any other Python call
 try:
@@ -18,4 +18,3 @@ finally:
     # clean up
     socket.close()
     context.term()
-

@@ -18,7 +18,7 @@ context = zmq.Context()
 
 # Socket to send messages on
 sender = context.socket(zmq.PUSH)
-sender.bind("tcp://*:5557")
+sender.bind("tcp://*:5500")
 
 # Socket with direct access to the sink: used to syncronize start of batch
 sink = context.socket(zmq.PUSH)
