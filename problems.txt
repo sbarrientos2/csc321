@@ -1,0 +1,272 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf470
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 Menlo-Regular;\f2\fnil\fcharset0 Menlo-Bold;
+}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww19420\viewh17320\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\b\fs24 \cf0 Exercise 1\
+\
+Exercise 2
+\b0 \
+\
+
+\b NETSTAT PRIOR SERVICE RUNNING\
+
+\f1\b0\fs22 \CocoaLigature0 falstaff:zmq sbarrientos$ netstat -an -p tcp\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf0 Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.61779   17.249.137.246.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.61778   17.249.137.246.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.61773   17.249.220.15.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN  \
+\
+\
+
+\f2\b\fs24 NETSTAT WHILE SERVICE RUNNING
+\f1\b0\fs22 \
+falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  127.0.0.1.5559         127.0.0.1.61833        ESTABLISHED\
+tcp4       0      0  127.0.0.1.61833        127.0.0.1.5559         ESTABLISHED\
+tcp4       0      0  127.0.0.1.5560         127.0.0.1.61832        ESTABLISHED\
+tcp4       0      0  127.0.0.1.61832        127.0.0.1.5560         ESTABLISHED\
+
+\f2\b tcp4       0      0  *.5560                 *.*                    LISTEN     \
+tcp4       0      0  *.5559                 *.*                    LISTEN  
+\f1\b0    \
+tcp4       0      0  127.0.0.1.631          *.*                    LISTEN     \
+tcp6       0      0  ::1.631                *.*                    LISTEN     \
+tcp4       0      0  192.168.178.46.61773   17.249.220.15.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN    \
+\
+On this snapshot I could tell that there is two connections that started because of the service I was running. The ones that are bold, the port 5559 is the client, which is sending and receiving information. The worker is 5560, which is only sending information.\
+\
+
+\f2\b NETSTAT RIGHT AFTER SERVICE STOPPED\
+
+\f1\b0 falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.61838   52.200.124.109.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.61773   17.249.220.15.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN  \
+\
+
+\f2\b PYTHON CODE FOR RRCLIENT\
+
+\f1\b0 import zmq\
+import time\
+\
+context = zmq.Context()\
+socket = context.socket(zmq.REQ)\
+socket.connect("tcp://localhost:5559")\
+\
+for request in range(1,100):\
+    socket.send(b"Hello")\
+    message = socket.recv()\
+    print("Received reply %s [%s]" % (request, message))\
+    time.sleep(1)
+\f2\b \
+\
+PYTHON CODE FOR REWORKED\
+
+\f1\b0 import zmq\
+\
+context = zmq.Context()\
+socket = context.socket(zmq.REP)\
+socket.connect("tcp://localhost:5560")\
+\
+while True:\
+    message = socket.recv()\
+    print("Received request: %s" % message)\
+    socket.send(b"World")
+\f2\b \
+\
+PYTHON CODE FOR RRBROKER\
+
+\f1\b0 import zmq\
+\
+context = zmq.Context()\
+frontend = context.socket(zmq.ROUTER)\
+backend = context.socket(zmq.DEALER)\
+frontend.bind("tcp://*:5559")\
+backend.bind("tcp://*:5560")\
+\
+poller = zmq.Poller()\
+poller.register(frontend, zmq.POLLIN)\
+poller.register(backend, zmq.POLLIN)\
+\
+while True:\
+    socks = dict(poller.poll())\
+\
+    if socks.get(frontend) == zmq.POLLIN:\
+        message = frontend.recv_multipart()\
+        backend.send_multipart(message)\
+\
+    if socks.get(backend) == zmq.POLLIN:\
+        message = backend.recv_multipart()\
+        frontend.send_multipart(message)\
+\
+
+\f2\b Exercise 3\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \CocoaLigature1 NETSTAT PRIOR SERVICE RUNNING
+\f2\fs22 \CocoaLigature0 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f1\b0 \cf0 falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN     \
+\
+
+\f2\b\fs24 NETSTAT WHILE SERVICE RUNNING
+\f1\b0\fs22 \
+falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+
+\f2\b tcp4       0      0  *.5560                 *.*                    LISTEN     \
+tcp4       0      0  *.5559                 *.*                    LISTEN  
+\f1\b0    \
+tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN   \
+\
+Here the only ones that are part of the process are the bold ones, both of them come from the same python file, msgqueue.py. The 5559 is from the fronted and the 5560 is from the backend.\
+
+\f2\b NETSTAT RIGHT AFTER SERVICE STOPPED\
+
+\f1\b0 falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN    \
+\
+
+\f2\b PYTHON CODE FOR MSGQUEUE.PY\
+\
+
+\f1\b0 import zmq\
+\
+\
+def main():\
+    """ main method """\
+\
+    context = zmq.Context()\
+\
+    # Socket facing clients\
+    frontend = context.socket(zmq.ROUTER)\
+    frontend.bind("tcp://*:5559")\
+\
+    # Socket facing services\
+    backend  = context.socket(zmq.DEALER)\
+    backend.bind("tcp://*:5560")\
+\
+    zmq.proxy(frontend, backend)\
+\
+    # We never get here...\
+    frontend.close()\
+    backend.close()\
+    context.term()\
+\
+\
+if __name__ == "__main__":\
+    main()\
+\
+
+\f2\b Exercise 4\
+\
+NETSTAT PRIOR RUNNING THE SERVICE\
+\
+
+\f1\b0 Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.62537   151.101.48.133.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.62536   151.101.48.133.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.62535   151.101.48.133.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.62534   151.101.48.133.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.62533   151.101.48.133.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.62532   151.101.48.133.443     ESTABLISHED\
+tcp4       0      0  192.168.178.46.62531   108.177.8.157.80       ESTABLISHED\
+tcp4       0      0  192.168.178.46.62530   108.177.8.157.80       ESTABLISHED\
+tcp4       0      0  192.168.178.46.62529   108.177.8.157.80       ESTABLISHED\
+tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN  \
+\
+
+\f2\b\fs24 NETSTAT WHILE SERVICE RUNNING\
+
+\f1\b0\fs22 \
+
+\f2\b NETSTAT RIGHT AFTER SERVICE STOPPED\
+\
+Exercise 5\
+\
+NETSTAT PRIOR RUNNING THE SERVICE\
+
+\f1\b0 falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN    \
+
+\f2\b\fs24 \
+NETSTAT WHILE SERVICE RUNNING\
+
+\f1\b0\fs22 Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+
+\f2\b tcp4       0      0  *.5555                 *.*                    LISTEN     \
+
+\f1\b0 tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN  \
+\
+While the service is running we can tell that there is a listening connection from port 5555, this process is waiting for us to send the call to kill something so they can kill it for us and send back: \'93interrupt received, stopping\'85\'94\
+\
+
+\f2\b NETSTAT RIGHT AFTER SERVICE STOPPED\
+
+\f1\b0 falstaff:zmq sbarrientos$ netstat -an -p tcp\
+Active Internet connections (including servers)\
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)    \
+tcp4       0      0  192.168.178.46.61948   17.249.220.36.5223     ESTABLISHED\
+tcp4       0      0  *.22                   *.*                    LISTEN     \
+tcp6       0      0  *.22                   *.*                    LISTEN     \
+\
+
+\f2\b PYTHON CODE FOR INTERRUPT.PY
+\f1\b0 \
+import signal\
+import time\
+import zmq\
+\
+context = zmq.Context()\
+socket = context.socket(zmq.REP)\
+socket.bind("tcp://*:5555\'94)\
+\
+try:\
+    socket.recv()\
+except KeyboardInterrupt:\
+    print("W: interrupt received, stopping...")\
+finally:\
+    socket.close()\
+    context.term()
+\f2\b \
+\
+\
+}
